@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include "threads.h"
 
 #define stack_size 4096
@@ -63,7 +64,7 @@ void thread_add_runqueue(thread* newThread){
 		newThread->nextThread = current;							
 		current->lastThread = newThread;
 	}
-	printf("current thread = %p\n", current);
+	printf("current thread = %p\n\n", current);
 	return;
 }
 
@@ -106,9 +107,30 @@ void thread_start_threading(void){
 }
 
 
+void thread_exit(void){
+	if(debug){
+		printf("current thread = %p\n", current);
+		printf("last thread id = %d\n", current->lastThread->id);
+		printf("next thread id = %d\n", current->nextThread->id);
+	}
+	thread* oldThread = current;
+	current->lastThread->nextThread = current->nextThread;		//removing from ring
+	current->nextThread->lastThread = current->lastThread;
+	current = current->nextThread;								//move to next thread
+	free(oldThread->stack);										
+	free(oldThread);		
+	dispatch();
+}
 
-
-
+//prints the ring of threads
+void printRing(int revs, int numThreads){
+	int i = numThreads * revs;
+	while(i > 0){
+		printf("thread id = %d\n", current->id);
+		current = current->nextThread;
+		i--;
+	}
+}
 
 int main(int argc, char **argv)
 {
@@ -128,18 +150,23 @@ int main(int argc, char **argv)
 	i++;
 	thread_add_runqueue(t5);
 	i++;
-	i *= 3;
-	while(i > 0){
-		printf("thread id = %d\n", current->id);
-		current = current->nextThread;
-		i--;
-	}
+	printRing(3, i);
+	thread_exit();
+	i--;
+	thread_exit();
+	i--;
+	t1 = thread_create(f1, NULL, 1);
+	thread_add_runqueue(t1);
+	i++;
+	printRing(3, i);
+	
 	
 	/*
     thread_start_threading();
     printf("\nexited\n"); */
     return 0;
 }
+
 
 void f3(void *arg)
 {
