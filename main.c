@@ -11,33 +11,33 @@ void f1(void *arg);
 struct thread *current = NULL;
 
 typedef struct thread{
-	int id;												//id for debugging
-	void (*f)(void *arg);								//function pointer
-	void* arg;											//function's argument
-	char* stack;										//thread's stack
-	struct thread* nextThread;							//pointer to next thread in queue
-	struct thread* lastThread;							//pointer to previous thread
-	char* base;											//stack base pointer
+	int id;									//id for debugging
+	void (*f)(void *arg);							//function pointer
+	void* arg;								//function's argument
+	char* stack;								//thread's stack
+	struct thread* nextThread;						//pointer to next thread in queue
+	struct thread* lastThread;						//pointer to previous thread
+	char* base;								//stack base pointer
 } thread;
 
 //creates a new thread and initializes values
-thread *thread_create(void (*f)(void *arg), void *arg, int id){					//remove id before submitting!!
-	thread* newThread = malloc(sizeof(thread));			//new thread	
-	newThread->id = id;									//thread id
-	newThread->stack = malloc(stack_size);				//new stack
+thread *thread_create(void (*f)(void *arg), void *arg, int id){			//remove id before submitting!!
+	thread* newThread = malloc(sizeof(thread));				//new thread	
+	newThread->id = id;							//thread id
+	newThread->stack = malloc(stack_size);					//new stack
 	newThread->base = newThread->stack;					//set base pointer
 	printf("address = %p\n", (void*)newThread->stack);
 	printf("mod = %d\n", (int)newThread->stack % 8);
-	while((long)newThread->stack % 8 != 0){				//correct?
+	while((long)newThread->stack % 8 != 0){					//correct?
 		newThread->stack++;
 		printf("address = %p\n", (void*)newThread->stack);
 	}
 	if (debug){
 	  printf("f = %p\n", f);
 	}
-	newThread->f = f;									//function pointer
+	newThread->f = f;							//function pointer
 	printf("newThread->f = %p\n", newThread->f);
-	newThread->arg = arg;								//void* arg
+	newThread->arg = arg;							//void* arg
 	if (debug) {
 	  printf("address = %p\n", (void*)newThread->stack);
 	  printf("mod = %d", (int)newThread->stack % 8);
@@ -51,7 +51,7 @@ void thread_add_runqueue(thread* newThread){
 	printf("current thread = %p\nadding to queue...\n", current);
 	
 	//if empty queue
-	if(current == NULL){								//current thread = newThread, otherwise...
+	if(current == NULL){							//current thread = newThread, otherwise...
 		current = newThread;
 		current->nextThread = newThread;				//point to itself if only one in queue
 		current->lastThread = newThread;				//^^
@@ -59,7 +59,7 @@ void thread_add_runqueue(thread* newThread){
 	}
 	//else, not empty queue
 	else{
-		current->lastThread->nextThread = newThread;				//last thread needs to point to a new last thread
+		current->lastThread->nextThread = newThread;			//last thread needs to point to a new last thread
 		newThread->lastThread = current->lastThread;	//new thread's previous thread points to the previous last thread
 		newThread->nextThread = current;							
 		current->lastThread = newThread;
@@ -114,9 +114,9 @@ void thread_exit(void){
 		printf("next thread id = %d\n", current->nextThread->id);
 	}
 	thread* oldThread = current;
-	current->lastThread->nextThread = current->nextThread;		//removing from ring
+	current->lastThread->nextThread = current->nextThread;			//removing from ring
 	current->nextThread->lastThread = current->lastThread;
-	current = current->nextThread;								//move to next thread
+	current = current->nextThread;						//move to next thread
 	free(oldThread->stack);										
 	free(oldThread);		
 	dispatch();
