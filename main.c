@@ -10,16 +10,19 @@ void f1(void *arg);
 struct thread *current = NULL;
 
 typedef struct thread{
+	int id;												//id for debugging
 	void (*f)(void *arg);								//function pointer
 	void* arg;											//function's argument
 	char* stack;										//thread's stack
-	struct thread* nextThread;									//pointer to next thread in queue
+	struct thread* nextThread;							//pointer to next thread in queue
+	struct thread* lastThread;							//pointer to previous thread
 	char* base;											//stack base pointer
 } thread;
 
 //creates a new thread and initializes values
-thread *thread_create(void (*f)(void *arg), void *arg){
+thread *thread_create(void (*f)(void *arg), void *arg, int id){					//remove id before submitting!!
 	thread* newThread = malloc(sizeof(thread));			//new thread	
+	newThread->id = id;									//thread id
 	newThread->stack = malloc(stack_size);				//new stack
 	newThread->base = newThread->stack;					//set base pointer
 	printf("address = %p\n", (void*)newThread->stack);
@@ -50,13 +53,15 @@ void thread_add_runqueue(thread* newThread){
 	if(current == NULL){								//current thread = newThread, otherwise...
 		current = newThread;
 		current->nextThread = newThread;				//point to itself if only one in queue
+		current->lastThread = newThread;				//^^
 		printf("current's next thread = %p\n", current->nextThread);
 	}
 	//else, not empty queue
 	else{
-		newThread->nextThread = current->nextThread;	//point newThread to current's next thread
-		current->nextThread = newThread;				//current's next thread is the new thread
-		//this always puts the new thread right after the current thread
+		current->lastThread->nextThread = newThread;				//last thread needs to point to a new last thread
+		newThread->lastThread = current->lastThread;	//new thread's previous thread points to the previous last thread
+		newThread->nextThread = current;							
+		current->lastThread = newThread;
 	}
 	printf("current thread = %p\n", current);
 	return;
@@ -64,25 +69,72 @@ void thread_add_runqueue(thread* newThread){
 
 //saves the current thread's context to its struct
 void thread_yield(void){
-	//save cpu's base pointer and stack pointer to current thread
-	//move next thread's base pointer and stack pointer to cpu
-	printf("current thread = %p\n", current);
-	//save context
+	if(debug){
+		printf("current thread = %p\n", current);
+		printf("current's stack pointer = %p\n", current->stack);
+		printf("current's base pointer = %p\n", current->base);
+	}
+	//save context to current thread (copies esp to current thread's stack pointer, and bsp to current thread's base pointer)
 	__asm __volatile("mov %%rsp, %%rax" : "=a" (current->stack) : );
 	__asm __volatile("mov %%rbp, %%rax" : "=a" (current->base) : );
-	//move new context in
+	//move next thread's context into cpu
 	__asm __volatile("mov %%rax, %%rsp" : : "a" (current->nextThread->stack) );
-	__asm __volatile("mov %%rax, %%rbp" : : "a" (current->nextThread->stack) );
+	__asm __volatile("mov %%rax, %%rbp" : : "a" (current->nextThread->base) );
 	
 	current = current->nextThread;
-	printf("current thread = %p\n", current);
+	if(debug){
+		printf("current's stack pointer = %p\n", current->stack);
+		printf("current's base pointer = %p\n", current->base);
+		printf("current thread = %p\n", current);
+	}
 	return;
 }
 
+//picks next thread to execute
+void schedule(void){
+
+}
+
+//
+void dispatch(void){
+
+}
+
+//starts the threading process
+void thread_start_threading(void){
+	
+}
+
+
+
+
+
+
 int main(int argc, char **argv)
 {
-    struct thread *t1 = thread_create(f1, NULL);
+	int i = 0;
+    struct thread *t1 = thread_create(f1, NULL, 1);
+	thread* t2 = thread_create(f1, NULL, 2);
+	thread* t3 = thread_create(f1, NULL, 3);
+	thread* t4 = thread_create(f1, NULL, 4);
+	thread* t5 = thread_create(f1, NULL, 5);
     thread_add_runqueue(t1);
+	i++;
+	thread_add_runqueue(t2);
+	i++;
+	thread_add_runqueue(t3);
+	i++;
+	thread_add_runqueue(t4);
+	i++;
+	thread_add_runqueue(t5);
+	i++;
+	i *= 3;
+	while(i > 0){
+		printf("thread id = %d\n", current->id);
+		current = current->nextThread;
+		i--;
+	}
+	
 	/*
     thread_start_threading();
     printf("\nexited\n"); */
