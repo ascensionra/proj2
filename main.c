@@ -1,9 +1,13 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <setjmp.h>
 #include "threads.h"
 
+#define MAX_THREADS 10
 #define stack_size 4096
 #define debug 0
+
+static jmp_buf buffers[MAX_THREADS];			//holds jum_buf's for use with setjmp and longjmp.
 
 void f3(void *arg);
 void f2(void *arg);
@@ -74,15 +78,14 @@ void thread_yield(void){
 		printf("current thread = %p\n", current);
 		printf("current's stack pointer = %p\n", current->stack);
 		printf("current's base pointer = %p\n", current->base);
-	}
-	//save context to current thread (copies esp to current thread's stack pointer, and bsp to current thread's base pointer)
-	__asm __volatile("mov %%rsp, %%rax" : "=a" (current->stack) : );
-	__asm __volatile("mov %%rbp, %%rax" : "=a" (current->base) : );
-	//move next thread's context into cpu
-	__asm __volatile("mov %%rax, %%rsp" : : "a" (current->nextThread->stack) );
-	__asm __volatile("mov %%rax, %%rbp" : : "a" (current->nextThread->base) );
+	}		
 	
-	current = current->nextThread;
+	//call setjmp() here. longjmp will resume here when it is called inside dispatch. use current->id as index into buffer array for now.
+	
+	schedule();			//pick next thread
+	dispatch();			//switch contexts to new thread
+	
+	
 	if(debug){
 		printf("current's stack pointer = %p\n", current->stack);
 		printf("current's base pointer = %p\n", current->base);
@@ -91,19 +94,26 @@ void thread_yield(void){
 	return;
 }
 
-//picks next thread to execute
+//picks next thread to execute. (round robin)
 void schedule(void){
-
+	current = current->nextThread;
 }
 
 //
 void dispatch(void){
-
+	//need to switch contexts to next thread
+	//call longjmp with the buffer associated with the next thread to switch to a different thread's context. (buffer inside buffers[] at top)
+	
+	//if a thread hasn't been called yet we can't use longjmp. use the assembly code to do the first context switch manually.
 }
 
 //starts the threading process
 void thread_start_threading(void){
-	
+	//loop until no threads left
+	while(current != NULL){
+		//schedule();
+		//dispatch();
+	}
 }
 
 
