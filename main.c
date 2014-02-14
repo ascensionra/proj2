@@ -8,6 +8,7 @@
 #define debug 0
 
 static jmp_buf buffers[MAX_THREADS];			//holds jum_buf's for use with setjmp and longjmp.
+static jmp_buf mainBuf;							//buffer for main thread execution
 
 void f3(void *arg);
 void f2(void *arg);
@@ -16,11 +17,12 @@ struct thread *current = NULL;
 
 typedef struct thread{
 	int id;									//id for debugging
-	void (*f)(void *arg);							//function pointer
+	int firstRun;							//0 if hasnt run yet
+	void (*f)(void *arg);					//function pointer
 	void* arg;								//function's argument
-	char* stack;								//thread's stack
-	struct thread* nextThread;						//pointer to next thread in queue
-	struct thread* lastThread;						//pointer to previous thread
+	char* stack;							//thread's stack
+	struct thread* nextThread;				//pointer to next thread in queue
+	struct thread* lastThread;				//pointer to previous thread
 	char* base;								//stack base pointer
 } thread;
 
@@ -28,6 +30,7 @@ typedef struct thread{
 thread *thread_create(void (*f)(void *arg), void *arg, int id){			//remove id before submitting!!
 	thread* newThread = malloc(sizeof(thread));				//new thread	
 	newThread->id = id;							//thread id
+	newThread->firstRun = 0;					//0 for hasnt run yet
 	newThread->stack = malloc(stack_size);					//new stack
 	newThread->base = newThread->stack;					//set base pointer
 	printf("address = %p\n", (void*)newThread->stack);
@@ -81,9 +84,13 @@ void thread_yield(void){
 	}		
 	
 	//call setjmp() here. longjmp will resume here when it is called inside dispatch. use current->id as index into buffer array for now.
-	
-	schedule();			//pick next thread
-	dispatch();			//switch contexts to new thread
+	int result = setjmp(buffers[current->id]);
+	//return from direct invocation. switch to next thread now.
+	if(!result){
+		schedule();			//pick next thread
+		dispatch();			//switch contexts to new thread
+	}
+	//return from longjmp. continue execution of thread.
 	
 	
 	if(debug){
@@ -103,17 +110,25 @@ void schedule(void){
 void dispatch(void){
 	//need to switch contexts to next thread
 	//call longjmp with the buffer associated with the next thread to switch to a different thread's context. (buffer inside buffers[] at top)
+	if(current->firstRun == 0){
+		//change context (assembly) and call the thread's function
+		current->firstRun = 1;
+		//f();
+		//thread_exit();
+	}
+	//change context with longjmp
+	else{
+		longjmp(buffers[current->id], 1);	//jump to previously saved context.
+	}
 	
-	//if a thread hasn't been called yet we can't use longjmp. use the assembly code to do the first context switch manually.
 }
 
-//starts the threading process
+//starts the threading process. returns to main once all threads are finished.
 void thread_start_threading(void){
-	//loop until no threads left
-	while(current != NULL){
-		//schedule();
-		//dispatch();
-	}
+	//loop until all threads are done
+	//schedule();
+	//dispatch();
+	//this is only reached once all threads are done? returns to main from here
 }
 
 
