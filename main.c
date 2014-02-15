@@ -3,11 +3,11 @@
 #include <setjmp.h>
 #include "threads.h"
 
-#define MAX_THREADS 10
+//#define MAX_THREADS 10
 #define stack_size 4096
 #define debug 0
 
-static jmp_buf buffers[MAX_THREADS];			//holds jum_buf's for use with setjmp and longjmp.
+//static jmp_buf buffers[MAX_THREADS];			//holds jum_buf's for use with setjmp and longjmp.
 static jmp_buf mainBuf;							//buffer for main thread execution
 
 void f3(void *arg);
@@ -18,6 +18,7 @@ struct thread *current = NULL;
 typedef struct thread{
 	int id;									//id for debugging
 	int firstRun;							//0 if hasnt run yet
+	jmp_buf buffer;							//holds context info for switching
 	void (*f)(void *arg);					//function pointer
 	void* arg;								//function's argument
 	char* stack;							//thread's stack
@@ -84,7 +85,7 @@ void thread_yield(void){
 	}		
 	
 	//call setjmp() here. longjmp will resume here when it is called inside dispatch. use current->id as index into buffer array for now.
-	int result = setjmp(buffers[current->id]);
+	int result = setjmp(current->buffer);
 	//return from direct invocation. switch to next thread now.
 	if(!result){
 		schedule();			//pick next thread
@@ -118,7 +119,7 @@ void dispatch(void){
 	}
 	//change context with longjmp
 	else{
-		longjmp(buffers[current->id], 1);	//jump to previously saved context.
+		longjmp(current->buffer, 1);	//jump to previously saved context.
 	}
 	
 }
