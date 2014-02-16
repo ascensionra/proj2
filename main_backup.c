@@ -36,10 +36,12 @@ thread *thread_create(void (*f)(void *arg), void *arg, int id){			//remove id be
 	thread* newThread = malloc(sizeof(thread));				//new thread	
 	newThread->id = id;							//thread id
 	newThread->firstRun = 0;					//0 for hasnt run yet
-	newThread->stack = malloc(stack_size);					//new stack
-	newThread->base = newThread->stack;					//set base pointer
+	//newThread->stack = malloc(stack_size);					//new stack
+	//newThread->base = newThread->stack;					//set base pointer
 	//printf("address = %p\n", (void*)newThread->stack);
 	//printf("mod = %d\n", (int)newThread->stack % 8);
+	posix_memalign((void*) &newThread->base, 8, 4096);
+        newThread->stack = newThread->base + 4096;
 
 	while((uint64_t)newThread->stack % 8 != 0){					//correct?
 		newThread->stack++;
@@ -174,8 +176,10 @@ void dispatch(void)
 	printf("\t<dispatch first run block>\n"); 
 	printf("\tmanual context switch\n");
       }
-      __asm__ volatile("mov %%rsp, %%rax" : "=a" (current->stack) : );
-      __asm__ volatile("mov %%rbp, %%rax" : "=a" (current->base) : );
+//      __asm__ volatile("mov %%rsp, %%rax" : "=a" (current->stack) : );
+//      __asm__ volatile("mov %%rbp, %%rax" : "=a" (current->base) : );
+      __asm__ volatile("mov %%rax, %%rsp" :: "a" (current->stack));
+      __asm__ volatile("mov %%rax, %%rbp" :: "a" (current->base));
 
       current->firstRun = 1;
       current->f(current->arg);
@@ -268,10 +272,9 @@ int main(int argc, char **argv)
 {
 	int i = 0;
 
-  	thread *t1 = thread_create(f3, NULL, 1);
-	thread *t2 = thread_create(f3, NULL, 2);
-/*
-	thread* t2 = thread_create(f1, NULL, 2);
+  	thread *t1 = thread_create(f1, NULL, 1);
+/*	thread *t2 = thread_create(f1, NULL, 2);
+
 	thread* t3 = thread_create(f1, NULL, 3);
 	thread* t4 = thread_create(f1, NULL, 4);
 	thread* t5 = thread_create(f1, NULL, 5);
@@ -279,19 +282,21 @@ int main(int argc, char **argv)
 	thread_add_runqueue(t1);
 	i++;
 	numThreads++;
-	thread_add_runqueue(t2);
-	i++;
-	numThreads++;
 /*
 	thread_add_runqueue(t2);
 	i++;
+	numThreads++;
+
 	thread_add_runqueue(t3);
 	i++;
+	numThreads++;
 	thread_add_runqueue(t4);
 	i++;
+	numThreads++;
 	thread_add_runqueue(t5);
 	i++;
-*/
+	numThreads++;
+
 	//printRing(1, i);
 	
 	thread_start_threading();
@@ -306,10 +311,10 @@ int main(int argc, char **argv)
 	i--;
 	
 	printRing(1, i);
-	
+*/	
     thread_start_threading();
     printf("\nexited\n"); 
-*/
+
     return 0;
 }
 
@@ -338,10 +343,10 @@ void f2(void *arg)
 void f1(void *arg)
 {
     int i = 100;
-    /* struct thread *t2 = thread_create(f2, NULL);
+     struct thread *t2 = thread_create(f2, NULL, 2);
     thread_add_runqueue(t2);
-    struct thread *t3 = thread_create(f3, NULL);
-    thread_add_runqueue(t3); */
+    struct thread *t3 = thread_create(f3, NULL, 3);
+    thread_add_runqueue(t3); 
     while(1) {
         printf("thread %d: %d   id: %d\n", current->id, i++, current->id);
         if (i == 110) {
