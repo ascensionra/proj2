@@ -54,8 +54,9 @@ thread *thread_create(void (*f)(void *arg), void *arg, int id){			//remove id be
 	if (debug) {
 	  printf("address = %p\n", newThread->stack);
 	  printf("mod = %lu\n", (uint64_t)newThread->stack % 8);
+	
+	  printf("newThread address = %p\n<leaving thread_create>\n", newThread);
 	}
-	printf("newThread address = %p\n<leaving thread_create>\n", newThread);
 	return newThread;
 }
 
@@ -114,16 +115,19 @@ void schedule(void){
 
 //
 void dispatch(void){
+	if (debug) { printf("<in dispatch>\n"); }
 	//need to switch contexts to next thread
 	//call longjmp with the buffer associated with the next thread to switch to a different thread's context. (buffer inside buffers[] at top)
 	if(current->firstRun == 0){
 		//change context (assembly) and call the thread's function
 		current->firstRun = 1;
-		//f();
+		current->f(current->arg);
 		//thread_exit();
 	}
 	//change context with longjmp
+        else if (current->nextThread = NULL) { return; }
 	else{
+		if (debug) { printf("\ncalling longjmp\n"); }
 		longjmp(current->buffer, 1);	//jump to previously saved context.
 	}
 	
@@ -132,17 +136,25 @@ void dispatch(void){
 //starts the threading process. returns to main once all threads are finished.
 void thread_start_threading(void){
 	//loop until all threads are done
-	//schedule();
-	//dispatch();
+        if (debug) { 
+	  printf("\n<in thread_start_threading>\n");
+	  while (current->nextThread != NULL){
+	    printf("\t<entered while loop>, calling schedule()\n");
+	    schedule();
+	    printf("\t<returned from schedule>, calling dispatch()\n");
+	    dispatch();
+	    printf("\t<returned from dispatch>, returning to top of <while>\n");
+	  }
+	}
 	//this is only reached once all threads are done? returns to main from here
 }
 
 
 void thread_exit(void){
 	if(debug){
-		printf("\n<in thread_exit>\ncurrent thread = %p\n", current);
-		printf("last thread id = %d\n", current->prevThread->id);
-		printf("next thread id = %d\n<leaving thread_exit>\n", current->nextThread->id);
+	  printf("\n<in thread_exit>\ncurrent thread = %p\n", current);
+	  printf("last thread id = %d\n", current->prevThread->id);
+	  printf("next thread id = %d\n<leaving thread_exit>\n", current->nextThread->id);
 	}
 	thread* oldThread = current;
 	current->prevThread->nextThread = current->nextThread;			//removing from ring
@@ -158,9 +170,9 @@ void thread_exit(void){
 	int i = numThreads * revs;
 	if (debug) { printf("\n<in printRing>\n"); }
 	while(i > 0){
-		printf("thread id = %d\n", current->id);
-		current = current->nextThread;
-		i--;
+	  printf("thread id = %d\n", current->id);
+	  current = current->nextThread;
+	  i--;
 	}
 	if (debug) { printf("\n<leaving printRing>\n"); }
 }
@@ -179,6 +191,18 @@ int main(int argc, char **argv)
 */    
 	thread_add_runqueue(t1);
 	i++;
+/*
+	if (debug) { 
+	  printf("<in main>\texplicitly calling t1->f(t1->arg)\n"); 
+	  t1->f(t1->arg);
+	}
+
+        if (debug) {
+	  current = NULL;
+	  schedule();
+	  printf("\n<in main> explicitly called schedule()\ncurrent = %p\n",current);
+	}
+*/
 //	thread_add_runqueue(t2);
 //        i++;
 /*
@@ -190,12 +214,12 @@ int main(int argc, char **argv)
 	i++;
 	thread_add_runqueue(t5);
 	i++;
-*/
+
 	printRing(1, i);
 
 	thread_exit();
 	i--;
-/*
+
 	thread_exit();
 	i--;
 
@@ -205,10 +229,11 @@ int main(int argc, char **argv)
 	i--;
 	
 	printRing(1, i);
-	
-    thread_start_threading();
+*/	
+//    thread_start_threading();
     printf("\nexited\n"); 
-*/
+
+	if (debug) { printf("<leaving main>\n"); }
     return 0;
 }
 
