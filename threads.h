@@ -3,7 +3,7 @@
 
 struct thread;
 
-struct thread *thread_create(void (*f)(void *arg), void *arg, int id);		//remove id before submitting!!
+struct thread *thread_create(void (*f)(void *arg), void *arg);		//remove id before submitting!!
 void thread_add_runqueue(struct thread *t);
 void thread_yield(void);
 void dispatch(void);
