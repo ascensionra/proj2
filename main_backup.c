@@ -6,7 +6,7 @@
 
 //#define MAX_THREADS 10
 #define stack_size 4096
-#define debug 0
+#define debug 1
 
 //static jmp_buf buffers[MAX_THREADS];			//holds jum_buf's for use with setjmp and longjmp.
 static jmp_buf mainBuf;							//buffer for main thread execution
@@ -91,19 +91,16 @@ void thread_yield(void){
 	}		
 	printf("before printing result\n");
 	//call setjmp() here. longjmp will resume here when it is called inside dispatch. use current->id as index into buffer array for now.
+	//if direct invocation
 	schedule();
 	dispatch();
-	/* if(!result){
-		dispatch();
-	} */
 	printf("after jump...\n");
-	
+	printf("before return\n");
 	if(debug){
 		printf("\ncurrent's stack pointer = %p\n", current->stack);
 		printf("current's base pointer = %p\n", current->base);
 		printf("current thread = %p\n<leaving thread_yield>\n", current);
 	}
-	printf("before return\n");
 	return;
 }
 
@@ -119,22 +116,27 @@ void dispatch(void){
 	//need to switch contexts to next thread
 	//call longjmp with the buffer associated with the next thread to switch to a different thread's context. (buffer inside buffers[] at top)
 	if(current->firstRun == 0){
-		//change context (assembly) and call the thread's function
-		printf("manual context switch\n");
-		__asm__ volatile("mov %%rsp, %%rax" : : "a" (current->stack) );
-		__asm__ volatile("mov %%rbp, %%rax" : : "a" (current->base) );
-	
-		current->firstRun = 1;
-		current->f(current->arg);
-		thread_exit();
+		if(!setjmp(current->prevThread->buffer)){
+			//change context (assembly) and call the thread's function
+			printf("manual context switch\n");
+			__asm__ volatile("mov %%rsp, %%rax" : : "a" (current->stack));
+			__asm__ volatile("mov %%rbp, %%rax" : : "a" (current->base));
+
+			current->firstRun = 1;
+			current->f(current->arg);
+			thread_exit();
+		}
+		longjmp(current->buffer, 1);
+		
 	}
 	//change context with longjmp
 	else{
-		printf("before jump...\n");
-		longjmp(current->buffer, 1);	//jump to previously saved context.
-		printf("after jump...\n");
+		if(!setjmp(current->prevThread->buffer)){
+			printf("before jump...\n");
+			longjmp(current->buffer, 1);	//jump to previously saved context.
+			printf("after jump...\n");
+		}
 	}
-	
 }
 
 //starts the threading process. returns to main once all threads are finished.
@@ -252,13 +254,11 @@ void f1(void *arg)
     struct thread *t3 = thread_create(f3, NULL);
     thread_add_runqueue(t3); */
     while(1) {
-        printf("thread 1: %d   id: %d\n", i+3, current->id);
+        printf("thread 1: %d   id: %d\n", i++, current->id);
         if (i == 110) {
             i = 100;
         }
-		int result = setjmp(current->buffer);
-		if(!result)
-			thread_yield();
+		thread_yield();
     }
     printf("Hello\n");
 } 
