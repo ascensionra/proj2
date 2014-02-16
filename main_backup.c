@@ -13,6 +13,7 @@ static jmp_buf mainBuf;							//buffer for main thread execution
 static int mainFirstRun = 0;					//indicates first run of dispatch
 static int numThreads = 0;
 
+void f4(void *arg);
 void f3(void *arg);
 void f2(void *arg);
 void f1(void *arg);
@@ -121,53 +122,20 @@ void thread_yield(void){
 //picks next thread to execute. (round robin)
 void schedule(void){
 	if (debug) { printf("\n<in schedule>\n"); }
-	if ( current ) {
+	if ( current == NULL ) { return; }
+//	if ( current->nextThread != current ) {
           current = current->nextThread;
 	  if (debug) { printf("current= %p\n", current); }
-	} 
-        else {
+//	} 
+/*        else {
 	if (debug) { printf("\tno nextThread, current= %p\n", current); }
 	}
-	if (debug) { printf("<leaving schedule>\n"); }
+*/	if (debug) { printf("<leaving schedule>\n"); }
 }
 
-/*
-void dispatch(void){
-	//need to switch contexts to next thread
-	//call longjmp with the buffer associated with the next thread to switch to a different thread's context. (buffer inside buffers[] at top)
-	if(current->firstRun == 0){
-		if (debug) { printf("<dispatch first run block>\n"); }
-		if(!setjmp(current->prevThread->buffer)){
-			//change context (assembly) and call the thread's function
-
-			printf("manual context switch\n");
-			__asm__ volatile("mov %%rsp, %%rax" : "=a" (current->stack) : );
-			__asm__ volatile("mov %%rbp, %%rax" : "=a" (current->base) : );
-
-			current->firstRun = 1;
-			current->f(current->arg);
-			thread_exit();
-		}
-//		longjmp(current->buffer, 1);
-		
-	}
-	//change context with longjmp
-	else{
-		if (debug) { printf("<dispatch else block>\n"); }
-		if(!setjmp(current->prevThread->buffer)){
-			printf("before jump...\n");
-                        __asm__ volatile("mov %%rax, %%rsp" :: "a" (current->stack));
-                        __asm__ volatile("mov %%rax, %%rbp" :: "a" (current->base));
-			setjmp(current->buffer);
-			longjmp(current->buffer, 1);	//jump to previously saved context.
-			printf("after jump...\n");
-		}
-	}
-}
-*/
 void dispatch(void)
 {
-  if (debug && current) { printf("\n<dispatch>\ncurrent = %p\n",current); }
+  if (debug) { printf("\n<dispatch>\ncurrent = %p\n",current); }
   if(current && !setjmp(current->prevThread->buffer))
   {
     if(current->firstRun == 0)
@@ -176,8 +144,6 @@ void dispatch(void)
 	printf("\t<dispatch first run block>\n"); 
 	printf("\tmanual context switch\n");
       }
-//      __asm__ volatile("mov %%rsp, %%rax" : "=a" (current->stack) : );
-//      __asm__ volatile("mov %%rbp, %%rax" : "=a" (current->base) : );
       __asm__ volatile("mov %%rax, %%rsp" :: "a" (current->stack));
       __asm__ volatile("mov %%rax, %%rbp" :: "a" (current->base));
 
@@ -185,24 +151,23 @@ void dispatch(void)
       current->f(current->arg);
       if (debug) { printf("************* <dispatch> calling thread_exit\n"); }
       thread_exit();
+      return;
     }
-    else if (current){
+    else { 
       if (debug) { printf("\t<dispatch else block>\n\tbefore jump...\n"); }
-//      __asm__ volatile("mov %%rax, %%rsp" :: "a" (current->stack));
-//      __asm__ volatile("mov %%rax, %%rbp" :: "a" (current->base));
       longjmp(current->buffer, 1);
       if (debug) { printf("\t<back in dispatch>\n\tafter jump\n"); }
     }
   }
-  if (debug) { printf("<leaving dispatch>\n"); }
+  else { if (debug) { printf("<leaving dispatch>\n"); } return; }
 }
 
 //starts the threading process. returns to main once all threads are finished.
 void thread_start_threading(void){
 	//loop until all threads are done
 	while(current != NULL){
-		dispatch();
 		schedule();
+		dispatch();
 	}
 	//this is only reached once all threads are done? returns to main from here
 }
@@ -211,10 +176,10 @@ void thread_start_threading(void){
 void thread_exit(void){
 	if(debug){
 		printf("\n<in thread_exit>\ncurrent thread stack = %p\n", current->stack);
-		printf("last thread id = %d\n", current->prevThread->id);
-		printf("next thread id = %d\n", current->nextThread->id);
+		printf("\tlast thread id = %d\n", current->prevThread->id);
+		printf("\tnext thread id = %d\n", current->nextThread->id);
 	}
-        print_queue();
+//        print_queue();
 	if ( current->nextThread == current ) 
 	{ 
 	  if (debug) { printf("<thread exit> last thread, killing it\n"); }
@@ -222,6 +187,8 @@ void thread_exit(void){
 	  free(current);
           current = NULL;
 	  dispatch();
+	  if (debug) { printf("\t<back in thread_exit after dispatch>\n"); }
+	  //return;
 	}
 	else {
 	  thread* oldThread = current;
@@ -273,8 +240,8 @@ int main(int argc, char **argv)
 	int i = 0;
 
   	thread *t1 = thread_create(f1, NULL, 1);
-/*	thread *t2 = thread_create(f1, NULL, 2);
-
+//	thread *t2 = thread_create(f4, NULL, 2);
+/*
 	thread* t3 = thread_create(f1, NULL, 3);
 	thread* t4 = thread_create(f1, NULL, 4);
 	thread* t5 = thread_create(f1, NULL, 5);
@@ -360,3 +327,10 @@ void f1(void *arg)
     printf(" World\n");
 */
 } 
+
+void f4(void *arg)
+{
+  printf("Hello\n");
+  thread_yield();
+  printf("World\n");
+}
