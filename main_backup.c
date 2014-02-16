@@ -6,15 +6,17 @@
 
 //#define MAX_THREADS 10
 #define stack_size 4096
-#define debug 1
+#define debug 0
 
 //static jmp_buf buffers[MAX_THREADS];			//holds jum_buf's for use with setjmp and longjmp.
 static jmp_buf mainBuf;							//buffer for main thread execution
 static int mainFirstRun = 0;					//indicates first run of dispatch
+static int numThreads = 0;
 
 void f3(void *arg);
 void f2(void *arg);
 void f1(void *arg);
+void print_queue(void);
 struct thread *current = NULL;
 
 typedef struct thread{
@@ -50,13 +52,15 @@ thread *thread_create(void (*f)(void *arg), void *arg, int id){			//remove id be
 	  printf("<in thread_create>\nf = %p\n", f);
 	}
 	newThread->f = f;							//function pointer
-	printf("newThread->f = %p\n", newThread->f);
+        if (debug) { printf("newThread->f = %p\n", newThread->f); }
 	newThread->arg = arg;							//void* arg
 	if (debug) {
 	  printf("address = %p\n", newThread->stack);
 	  printf("mod = %lu\n", (uint64_t)newThread->stack % 8);
 	}
-	printf("newThread address = %p\n<leaving thread_create>\n", newThread);
+	if (debug) {
+          printf("newThread address = %p\n<leaving thread_create>\n", newThread);
+	}
 	return newThread;
 }
 
@@ -110,8 +114,8 @@ void thread_yield(void){
 }
 //picks next thread to execute. (round robin)
 void schedule(void){
-	if (debug) { printf("<in schedule>\n"); }
-	if ( current->nextThread ) {
+	if (debug) { printf("\n<in schedule>\n"); }
+	if ( current ) {
           current = current->nextThread;
 	  if (debug) { printf("current= %p\n", current); }
 	} 
@@ -157,8 +161,8 @@ void dispatch(void){
 */
 void dispatch(void)
 {
-  if (debug) { printf("\n<dispatch>\n"); }
-  if(!setjmp(current->prevThread->buffer))
+  if (debug && current) { printf("\n<dispatch>\ncurrent = %p\n",current); }
+  if(current && !setjmp(current->prevThread->buffer))
   {
     if(current->firstRun == 0)
     {
@@ -174,7 +178,7 @@ void dispatch(void)
       if (debug) { printf("************* <dispatch> calling thread_exit\n"); }
       thread_exit();
     }
-    else {
+    else if (current){
       if (debug) { printf("\t<dispatch else block>\n\tbefore jump...\n"); }
       longjmp(current->buffer, 1);
       if (debug) { printf("\t<back in dispatch>\n\tafter jump\n"); }
@@ -196,17 +200,37 @@ void thread_start_threading(void){
 
 void thread_exit(void){
 	if(debug){
-		printf("\n<in thread_exit>\ncurrent thread = %p\n", current);
+		printf("\n<in thread_exit>\ncurrent thread stack = %p\n", current->stack);
 		printf("last thread id = %d\n", current->prevThread->id);
-		printf("next thread id = %d\n<leaving thread_exit>\n", current->nextThread->id);
+		printf("next thread id = %d\n", current->nextThread->id);
 	}
-	thread* oldThread = current;
-	current->prevThread->nextThread = current->nextThread;			//removing from ring
-	current->nextThread->prevThread = current->prevThread;
-	current = current->nextThread;						//move to next thread
-	free(oldThread->stack);										
-	free(oldThread);		
-	dispatch();
+        print_queue();
+	if ( current->nextThread == current ) 
+	{ 
+	  if (debug) { printf("<thread exit> last thread, killing it\n"); }
+	  //free(oldThread->stack);
+	  free(current);
+          current = NULL;
+	  dispatch();
+	}
+	else {
+	  thread* oldThread = current;
+	  if (debug) { printf("<thread_exit> just set oldThread=current\n"); }
+	  current->prevThread->nextThread = current->nextThread;			//removing from ring
+	  if (debug) { printf("<thread_exit> curr->prev->next = curr->next\n"); }
+	  current->nextThread->prevThread = current->prevThread;
+	  if (debug) { printf("<thread_exit> curr->next->prev = curr->prev\n"); }
+	  current = current->nextThread;						//move to next thread
+	  if (debug) { printf("<thread_exit> curr = curr->next\n"); }
+
+          if (debug) { printf("oldThread->stack = %p\n", oldThread->stack);  }
+
+	  //free(oldThread->stack);										
+	  if (debug) { printf("<thread_exit> free(oldThread->stack\n"); }
+	  free(oldThread);
+	  if (debug) { printf("<leaving thread_exit> calling dispatch()\n"); }
+ 	  dispatch();
+	}
 }
 
 //prints the ring of threads
@@ -219,6 +243,19 @@ void thread_exit(void){
 		i--;
 	}
 	if (debug) { printf("\n<leaving printRing>\n"); }
+}
+
+void print_queue(void)
+{
+  if (debug) { printf("\n<in print_queue>\n"); }
+  thread *temp = current;
+  int i = numThreads;
+  while(temp && i > 0) {
+    printf("thread id = %d\n", temp->id);
+    temp = temp->nextThread;
+    i--;
+  } 
+  if (debug) { printf("<leaving print_queue>\n"); }
 }
 
 int main(int argc, char **argv)
@@ -235,8 +272,10 @@ int main(int argc, char **argv)
 */    
 	thread_add_runqueue(t1);
 	i++;
+	numThreads++;
 	thread_add_runqueue(t2);
 	i++;
+	numThreads++;
 /*
 	thread_add_runqueue(t2);
 	i++;
@@ -296,15 +335,17 @@ void f1(void *arg)
     /* struct thread *t2 = thread_create(f2, NULL);
     thread_add_runqueue(t2);
     struct thread *t3 = thread_create(f3, NULL);
-    thread_add_runqueue(t3); 
+    thread_add_runqueue(t3); */
     while(1) {
         printf("thread 1: %d   id: %d\n", i++, current->id);
         if (i == 110) {
             i = 100;
         }
 	thread_yield();
-    }*/
+    }
+/*
     printf("Hello\n");
     thread_yield();
     printf(" World\n");
+*/
 } 
