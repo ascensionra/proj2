@@ -125,7 +125,6 @@ void dispatch(void){
 		//thread_exit();
 	}
 	//change context with longjmp
-        else if (current->nextThread = NULL) { return; }
 	else{
 		if (debug) { printf("\ncalling longjmp\n"); }
 		longjmp(current->buffer, 1);	//jump to previously saved context.
@@ -182,7 +181,7 @@ int main(int argc, char **argv)
 	int i = 0;
 
         thread *t1 = thread_create(f1, NULL, 1);
-//	thread *t2 = thread_create(f1, NULL, 2);
+	thread *t2 = thread_create(f1, NULL, 2);
 /*
 	thread* t2 = thread_create(f1, NULL, 2);
 	thread* t3 = thread_create(f1, NULL, 3);
@@ -203,8 +202,8 @@ int main(int argc, char **argv)
 	  printf("\n<in main> explicitly called schedule()\ncurrent = %p\n",current);
 	}
 */
-//	thread_add_runqueue(t2);
-//        i++;
+	thread_add_runqueue(t2);
+        i++;
 /*
 	thread_add_runqueue(t2);
 	i++;
@@ -230,7 +229,7 @@ int main(int argc, char **argv)
 	
 	printRing(1, i);
 */	
-//    thread_start_threading();
+    thread_start_threading();
     printf("\nexited\n"); 
 
 	if (debug) { printf("<leaving main>\n"); }
@@ -273,5 +272,7 @@ void f1(void *arg)
         }
         thread_yield();
     } */
-    printf("Hello\n");
+    printf("Hello \n");
+    thread_yield();
+    printf("World\n");
 } 
