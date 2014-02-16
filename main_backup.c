@@ -92,25 +92,29 @@ void thread_yield(void){
 		printf("\n<in thread_yield>\n\tcurrent thread = %p\n", current);
 		printf("\tcurrent's stack pointer = %p\n", current->stack);
 		printf("\tcurrent's base pointer = %p\n", current->base);
+		printf("\tcurrent's next = %p\n", current->nextThread);
+		printf("\tcurrent's prev = %p\n", current->prevThread);
 		printf("\tbefore printing result\n");
 	}		
 	//call setjmp() here. longjmp will resume here when it is called inside dispatch. use current->id as index into buffer array for now.
 	//if direct invocation
         if (!setjmp(current->buffer)) {
+	    if (debug) { printf("\t<thread_yield> calling schedule()\n"); }
 	  schedule();
+	    if (debug) { printf("\t<thread_yield> calling dispatch()\n"); }
 	  dispatch();
 	} else {
-	if(debug){
+	    if(debug){
 		printf("<back in thread_yield>\n\tafter jump...\n");
 		printf("\tbefore return\n");
 		printf("\tcurrent's stack pointer = %p\n", current->stack);
 		printf("\tcurrent's base pointer = %p\n", current->base);
 		printf("\tcurrent thread = %p\n<leaving thread_yield>\n", current);
-	}
+	    }
         
-        if (debug) { printf("<thread_yield> calling longjmp\n"); }
-	longjmp(current->buffer,2);
-}
+            if (debug) { printf("<thread_yield> calling longjmp\n"); }
+	    longjmp(current->buffer,2);
+	}
 }
 //picks next thread to execute. (round robin)
 void schedule(void){
@@ -180,6 +184,8 @@ void dispatch(void)
     }
     else if (current){
       if (debug) { printf("\t<dispatch else block>\n\tbefore jump...\n"); }
+//      __asm__ volatile("mov %%rax, %%rsp" :: "a" (current->stack));
+//      __asm__ volatile("mov %%rax, %%rbp" :: "a" (current->base));
       longjmp(current->buffer, 1);
       if (debug) { printf("\t<back in dispatch>\n\tafter jump\n"); }
     }
@@ -262,8 +268,8 @@ int main(int argc, char **argv)
 {
 	int i = 0;
 
-  	thread *t1 = thread_create(f1, NULL, 1);
-	thread *t2 = thread_create(f1, NULL, 2);
+  	thread *t1 = thread_create(f3, NULL, 1);
+	thread *t2 = thread_create(f3, NULL, 2);
 /*
 	thread* t2 = thread_create(f1, NULL, 2);
 	thread* t3 = thread_create(f1, NULL, 3);
@@ -312,7 +318,7 @@ void f3(void *arg)
 {
     int i;
     while (1) {
-        printf("thread 3: %d\n", i++);
+        printf("thread %d: %d\n",current->id, i++);
         thread_yield();
     }
 }
@@ -337,7 +343,7 @@ void f1(void *arg)
     struct thread *t3 = thread_create(f3, NULL);
     thread_add_runqueue(t3); */
     while(1) {
-        printf("thread 1: %d   id: %d\n", i++, current->id);
+        printf("thread %d: %d   id: %d\n", current->id, i++, current->id);
         if (i == 110) {
             i = 100;
         }
