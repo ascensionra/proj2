@@ -1,3 +1,9 @@
+Nicolas Vasquez
+nav346
+
+Jared McArthur
+jsm3287 
+
 02/08 14:50
 60 min, Nico driving, setting up struct and stack, thread_create
 15 min, Jared driving, outline program flow
