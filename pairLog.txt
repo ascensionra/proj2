@@ -1,3 +1,34 @@
 02/08 14:50
 60 min, Nico driving, setting up struct and stack, thread_create
 15 min, Jared driving, outline program flow
+
+2/10
+60 min, Nico, created primary function bodies (API functions)
+45 min, Jared, formatting, debug output
+
+2/12-2/14 <Separate work>
+Nico - establishes primary functionality
+	enqueueing
+	context switching
+	jump buffers, asm implementation
+Jared - debugging
+	thread_exit
+	restructure dispatch
+	change pointer implementations
+	gerneral format standardization
+
+2/16
+Nico and Jared - working to resolved issues when removing final thread
+	Nico - implement mainBuf in main() to provide return point for final thread
+	Both - implementing test cases: finite and infinite scenarios
+
+Nico prepare final package for submission
+	threads.c
+	threads.h
+	main.c
+Jared complete log
+
+Nico was a rockstar on this project, and is primarily responsible
+  for getting the project to a state where we could bring it to 
+  completion.
+
